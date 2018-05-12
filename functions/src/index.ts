@@ -10,6 +10,7 @@ const clientID = '';
 const clientSecret = '';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
+const recentMsgRef = db.ref('RecentMsg');
 const topic = 'gmail-push-notification';
 const version = "0.1 (beta)";
 
@@ -53,7 +54,7 @@ export const pubSubTrigger = functions.pubsub.topic(topic).onPublish((change, co
             },
             function(notification, important, callback){
                 if(important){
-                    sendToDevice(notification, regTokenArr, callback);
+                    sendToDevice(userId, notification, regTokenArr, callback);
                 }
             }
         ],function(err, result){
@@ -242,6 +243,12 @@ export interface userData{
     key : string;
 }
 
+export interface notificationObj{
+    sender  : string;
+    title   : string;
+    snippet : string;
+}
+
 function refreshtoken(refreshToken,callback){
     const postOptions = { 
         method: 'POST',
@@ -315,7 +322,8 @@ function getMsg(userId,accessToken,msgId,callback){
         title       : "",
         snippet     : "",
         messageID   : "",
-        payload     : ""
+        payload     : "",
+        sender      : ""
     };
     const options = {
             url: `https://www.googleapis.com/gmail/v1/users/${userId}/messages/${msgId}`,
@@ -335,6 +343,9 @@ function getMsg(userId,accessToken,msgId,callback){
                 notification.snippet = JSON.parse(body).snippet;
                 notification.messageID = JSON.parse(body).id;
             }
+            if(val.name === "From"){
+                notification.sender = val.value.split('<')[0];;
+            }
         })
 
         header.forEach(function(val){
@@ -352,28 +363,78 @@ function getMsg(userId,accessToken,msgId,callback){
     })
 }
 
-function sendToDevice(notification,regToken,callback){
-    
-    const payload = {
-        notification : {
-            title : notification.title,
-            body  : notification.snippet,
-            color : '#4C64EB',
-            icon  : 'notification_icon'
-        },
-        data : {
-            id      : notification.messageID
-        }
+function sendToDevice(userId, notification,regToken,callback){
+    let notiObj : notificationObj[] = [];
+    let body    : string = ""; 
+    let key     : string = "";
+    let obj     : notificationObj = {
+        sender  : notification.sender,
+        title   : notification.title,
+        snippet : notification.snippet
     };
-    admin.messaging().sendToDevice(regToken, payload)
-    .then(function(response) {
-        // See the MessagingTopicResponse reference documentation for the
-        // contents of response.
-        callback(null,'done');
+
+    recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapShot => {
+        key = Object.keys(snapShot.val())[0]; // To get the unique key
+        
+        recentMsgRef.child(key).push().set(obj)
+        .then(()=>{
+            recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapshot => {
+                snapshot.forEach(childSnapshot=>{
+                    childSnapshot.forEach(snap=>{
+                        if(snap.key!=="userName"){
+                            let msgObj = {} as notificationObj ;
+        
+                            msgObj['sender'] = snap.val().sender;
+                            msgObj['title'] = snap.val().title;
+                            msgObj['snippet'] = snap.val().snippet;
+                            notiObj.push(msgObj);
+                        }
+                    });
+                });
+
+                for(let i=0; i<notiObj.length; i++){
+                    body += `${notiObj[i].sender} : ${notiObj[i].title}\n`;
+                }
+                body.slice(0,2);
+                const emailNo = notiObj.length > 1? "emails" : "email";
+                const title = `You recently have ${notiObj.length} important ${emailNo} to look at :`;
+            
+                const payload = {
+                    notification : {
+                        title : title,
+                        body  : body,
+                        color : '#003fbd',
+                        icon  : 'notification_icon',
+                        tag   : '1'
+                    },
+                    data : {
+                        id    : notification.messageID
+                    }
+                };
+                admin.messaging().sendToDevice(regToken, payload)
+                .then(function(response) {
+                    // See the MessagingTopicResponse reference documentation for the
+                    // contents of response.
+                    callback(null,'done');
+                })
+                .catch(error => {
+                    console.log("Error sending message:", error);
+                });
+            })
+            .catch(err=>{
+                console.log(err);
+            })
+        })
+        .catch(err=>{
+            console.log(err);
+        });
+
+        
+        
     })
-    .catch(error => {
-        console.log("Error sending message:", error);
-    });
+    .catch(err=>{
+        console.log(err);
+    }) ;
 }
 
 function watch(userName,accessToken,key,callback){

@@ -6,11 +6,12 @@ const rp = require("request-promise");
 const async = require("async");
 const nodemailer = require("nodemailer");
 admin.initializeApp();
+const clientID = '115491863039-5pg6f5sdgeg696rh8fq85golnk53lm92.apps.googleusercontent.com';
+const clientSecret = 'NSruyviJurAinT3fxdYztTYu';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
+const recentMsgRef = db.ref('RecentMsg');
 const topic = 'gmail-push-notification';
-const clientID = '115491863039-5pg6f5sdgeg696rh8fq85golnk53lm92.apps.googleusercontent.com'; // Client ID from the Developer Console
-const clientSecret = 'NSruyviJurAinT3fxdYztTYu'; // Client secret
 const version = "0.1 (beta)";
 /* Cloud function that accept historyId from Google Pub/Sub, retrieve the previous user's historyId,
    and replace it with the current one, and checks for any new email from user inbox,
@@ -48,7 +49,7 @@ exports.pubSubTrigger = functions.pubsub.topic(topic).onPublish((change, context
             },
             function (notification, important, callback) {
                 if (important) {
-                    sendToDevice(notification, regTokenArr, callback);
+                    sendToDevice(userId, notification, regTokenArr, callback);
                 }
             }
         ], function (err, result) {
@@ -286,7 +287,8 @@ function getMsg(userId, accessToken, msgId, callback) {
         title: "",
         snippet: "",
         messageID: "",
-        payload: ""
+        payload: "",
+        sender: ""
     };
     const options = {
         url: `https://www.googleapis.com/gmail/v1/users/${userId}/messages/${msgId}`,
@@ -296,8 +298,6 @@ function getMsg(userId, accessToken, msgId, callback) {
         }
     };
     rp(options).then(body => {
-        // console.log(JSON.parse(body).sizeEstimate);
-        // console.log(JSON.stringify(body));
         const header = JSON.parse(body).payload.headers;
         let important;
         notification.payload = JSON.stringify(body);
@@ -306,6 +306,10 @@ function getMsg(userId, accessToken, msgId, callback) {
                 notification.title = val.value;
                 notification.snippet = JSON.parse(body).snippet;
                 notification.messageID = JSON.parse(body).id;
+            }
+            if (val.name === "From") {
+                notification.sender = val.value.split('<')[0];
+                ;
             }
         });
         header.forEach(function (val) {
@@ -322,26 +326,69 @@ function getMsg(userId, accessToken, msgId, callback) {
         console.log("getMsg error : " + err);
     });
 }
-function sendToDevice(notification, regToken, callback) {
-    const payload = {
-        notification: {
-            title: notification.title,
-            body: notification.snippet,
-            color: '#4C64EB',
-            icon: 'notification_icon'
-        },
-        data: {
-            id: notification.messageID
-        }
+function sendToDevice(userId, notification, regToken, callback) {
+    let notiObj = [];
+    let body = "";
+    let key = "";
+    let obj = {
+        sender: notification.sender,
+        title: notification.title,
+        snippet: notification.snippet
     };
-    admin.messaging().sendToDevice(regToken, payload)
-        .then(function (response) {
-        // See the MessagingTopicResponse reference documentation for the
-        // contents of response.
-        callback(null, 'done');
+    recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapShot => {
+        key = Object.keys(snapShot.val())[0]; // To get the unique key
+        recentMsgRef.child(key).push().set(obj)
+            .then(() => {
+            recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapshot => {
+                snapshot.forEach(childSnapshot => {
+                    childSnapshot.forEach(snap => {
+                        if (snap.key !== "userName") {
+                            let msgObj = {};
+                            msgObj['sender'] = snap.val().sender;
+                            msgObj['title'] = snap.val().title;
+                            msgObj['snippet'] = snap.val().snippet;
+                            notiObj.push(msgObj);
+                        }
+                    });
+                });
+                for (let i = 0; i < notiObj.length; i++) {
+                    body += `${notiObj[i].sender} : ${notiObj[i].title}\n`;
+                }
+                body.slice(0, 2);
+                const emailNo = notiObj.length > 1 ? "emails" : "email";
+                const title = `You recently have ${notiObj.length} important ${emailNo} to look at :`;
+                const payload = {
+                    notification: {
+                        title: title,
+                        body: body,
+                        color: '#003fbd',
+                        icon: 'notification_icon',
+                        tag: '1'
+                    },
+                    data: {
+                        id: notification.messageID
+                    }
+                };
+                admin.messaging().sendToDevice(regToken, payload)
+                    .then(function (response) {
+                    // See the MessagingTopicResponse reference documentation for the
+                    // contents of response.
+                    callback(null, 'done');
+                })
+                    .catch(error => {
+                    console.log("Error sending message:", error);
+                });
+            })
+                .catch(err => {
+                console.log(err);
+            });
+        })
+            .catch(err => {
+            console.log(err);
+        });
     })
-        .catch(error => {
-        console.log("Error sending message:", error);
+        .catch(err => {
+        console.log(err);
     });
 }
 function watch(userName, accessToken, key, callback) {
