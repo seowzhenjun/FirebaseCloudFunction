@@ -6,8 +6,8 @@ import * as nodemailer from 'nodemailer';
 
 admin.initializeApp();
 
-const clientID = '';
-const clientSecret = '';
+const clientID = '115491863039-5pg6f5sdgeg696rh8fq85golnk53lm92.apps.googleusercontent.com';
+const clientSecret = 'NSruyviJurAinT3fxdYztTYu';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
 const recentMsgRef = db.ref('RecentMsg');
@@ -202,16 +202,22 @@ export const sendFeedBack = functions.https.onRequest((req,res)=>{
         service : 'gmail',
         auth: {
             user: 'moodletracker.feedback@gmail.com',
-            pass : ''
+            pass : 'moodleTRACKER2018'
         }
     });
 
     if(!body.body.anonymous){
         text+=`From : ${body.body.userName} (${body.body.email})\n`;
     }
+    else{
+        text += 'From : Anonymous user\n';
+    }
     switch(body.body.feedbackType){
         case 'bug' :
             text += `Version : ${version}\nFeedback type : ${body.body.feedbackType}\nBug type : ${body.body.bugType}\nSeverity : ${body.body.severity}\nDescription : ${body.body.description}`;
+        break;
+        case 'feedback' :
+            text += `Version : ${version}\nFeedback type : ${body.body.feedbackType}\n\nSet up rating : ${body.body.setUpRating}/5\nTutorial rating : ${body.body.tutorialRating}/5\nSuggested keywords accuracy rating : ${body.body.suggestedKeywordRating}/5\nNotifications accuracy rating : ${body.body.notificationRating}/5\nOverall rating : ${body.body.overallRating}/5\n\nComment : ${body.body.description}`;
         break;
         default:
             text += `Version : ${version}\nFeedback type : ${body.body.feedbackType}\nDescription : ${body.body.description}`;
@@ -228,13 +234,33 @@ export const sendFeedBack = functions.https.onRequest((req,res)=>{
 
     transporter.sendMail(testMail, function(error, info){    //then sends an email
         if (error) {
-          console.log(error);
-          res.status(400).end();
+            console.log(error);
+            res.send({response:'error'});
         } else {
-          console.log('Email sent: ' + info.response);    //notify that an email is sent successfully
-            res.status(200).end();
+            console.log('Email sent: ' + info.response);    //notify that an email is sent successfully
+            res.send({response :'success'});
         }
     });
+})
+
+
+export const clearRecentMsg = functions.https.onRequest((req,res)=>{
+    recentMsgRef.once("value", snapShot =>{
+        snapShot.forEach(childSnapshot=>{
+            childSnapshot.forEach(snap=>{
+                if(snap.key !== "userName"){
+                    const ref = recentMsgRef.child(`${childSnapshot.key}/${snap.key}`);
+                    ref.remove().catch(err=>console.log(err));
+                }
+                return false;
+            })
+            return false;
+        })
+    }).then(()=>{
+        res.end();
+    }).catch(err=>{
+        console.log(err);
+    })
 })
 
 export interface userData{
