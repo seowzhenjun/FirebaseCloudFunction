@@ -1,13 +1,14 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import * as rp from 'request-promise';
+admin.initializeApp();
 import * as async from 'async';
 import * as nodemailer from 'nodemailer';
 
-admin.initializeApp();
+import * as interfaces from './interfaces';
+import * as GmailAPI from './GmailAPI';
+import { refreshtoken } from './oAuth2';
+import { sendToDevice } from './FCM';
 
-const clientID = '115491863039-5pg6f5sdgeg696rh8fq85golnk53lm92.apps.googleusercontent.com';
-const clientSecret = 'NSruyviJurAinT3fxdYztTYu';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
 const recentMsgRef = db.ref('RecentMsg');
@@ -47,10 +48,10 @@ export const pubSubTrigger = functions.pubsub.topic(topic).onPublish((change, co
             },
             function(accessToken,callback){
                 access_Token = accessToken;
-                historyList(userId, startHistoryId, accessToken, callback);
+                GmailAPI.historyList(userId, startHistoryId, accessToken, callback);
             },
             function(msgId,callback){
-                getMsg(userId, access_Token, msgId, callback);
+                GmailAPI.getMsg(userId, access_Token, msgId, callback);
             },
             function(notification, important, callback){
                 if(important){
@@ -71,7 +72,6 @@ export const pubSubTrigger = functions.pubsub.topic(topic).onPublish((change, co
 
 });
 
-
 /* Cloud function to subscribe new user to Google Pub/Sub topic*/
 export const subscribe = functions.database.ref('/GmailSub/{newUser}').onCreate((snap, context)=>{
     const key = snap.key;
@@ -84,7 +84,7 @@ export const subscribe = functions.database.ref('/GmailSub/{newUser}').onCreate(
             refreshtoken(refreshToken, callback);
         },
         function(accessToken,callback){
-            watch(userName,accessToken,key,callback);
+            GmailAPI.watch(userName,accessToken,key,callback);
         }
     ],function(err, result){
         if(err) return (err);
@@ -138,7 +138,7 @@ export const scheduleWatch = functions.https.onRequest((req,res) => {
     // and store them in an array as JSON
     gmailSubRef.orderByChild("refreshToken").once("value", snapshot => {
         snapshot.forEach(snap => {
-            const user : userData = {
+            const user : interfaces.userData = {
                 refreshToken : snap.val().refreshToken,
                 userName     : snap.val().userName,
                 key          : snap.key
@@ -155,7 +155,7 @@ export const scheduleWatch = functions.https.onRequest((req,res) => {
                     refreshtoken(token.refreshToken, callback);
                 },
                 function(accessToken,callback){
-                    watch(token.userName,accessToken,token.key,callback);
+                    GmailAPI.watch(token.userName,accessToken,token.key,callback);
                 }
             ],function(err, result){
                 if(err) return (err);
@@ -262,315 +262,3 @@ export const clearRecentMsg = functions.https.onRequest((req,res)=>{
         console.log(err);
     })
 })
-
-export interface userData{
-    userName : string;
-    refreshToken : string;
-    key : string;
-}
-
-export interface notificationObj{
-    sender  : string;
-    title   : string;
-    snippet : string;
-}
-
-function refreshtoken(refreshToken,callback){
-    const postOptions = { 
-        method: 'POST',
-        url: 'https://www.googleapis.com/oauth2/v4/token',
-        headers: { 
-            'Content-Type' : 'application/x-www-form-urlencoded' 
-        },
-        form: { 
-            client_id       : clientID,
-            client_secret   : clientSecret,
-            refresh_token   : refreshToken,
-            grant_type      : 'refresh_token'
-        },
-        json : true
-    };
-
-    rp(postOptions).then(body =>{
-        if(callback !== 1){
-            callback(null,body.access_token);
-        }
-    }).catch(err => {
-        console.log("refreshToken error : " + err);
-    })
-}
-
-function historyList(userId, historyId, accessToken, callback){
-    
-    const options = { 
-        method: 'GET',
-        url: `https://www.googleapis.com/gmail/v1/users/${userId}/history`,
-        qs: { 
-            startHistoryId  : historyId, 
-            historyTypes    : ['messageAdded','labelsAdded'],
-            maxResult       : 1
-        },
-        headers: {
-            'Authorization' : `Bearer ${accessToken}`
-        }
-    };
-
-    rp(options).then(body =>{
-        const msg = JSON.parse(body).history;
-        let msgId;
-        // Trigger when there is new email or an email is deleted from user's inbox
-        if (msg !== null){
-            msg.forEach(function(message){
-                if(JSON.stringify(message.messagesAdded) !== undefined ){
-                    const msgAdded = message.messagesAdded;
-                    msgAdded.forEach(function(result){
-                        msgId = result.message.id;
-                    })
-                    callback(null,msgId);
-                }
-                if(JSON.stringify(message.labelsAdded) !== undefined){
-                    const labelAdded = message.labelsAdded;
-                    labelAdded.forEach(label=>{
-                        if(label.labelIds[0] === 'TRASH'){
-                            addImportantMsg(userId,label.message.id,null);
-                        }
-                    })
-                }
-            })
-        }
-    }).catch(err => {
-        console.log("historyList error : " + err);
-    })
-}
-
-function getMsg(userId,accessToken,msgId,callback){
-    const notification = {
-        title       : "",
-        snippet     : "",
-        messageID   : "",
-        payload     : "",
-        sender      : ""
-    };
-    const options = {
-            url: `https://www.googleapis.com/gmail/v1/users/${userId}/messages/${msgId}`,
-            method: 'GET',
-            headers : {
-                'Authorization' : `Bearer ${accessToken}`
-            }
-        };
-        
-    rp(options).then(body => {
-        const header = JSON.parse(body).payload.headers;
-        let important;
-        notification.payload = JSON.stringify(body);
-        header.forEach(function(val){
-            if (val.name === "Subject"){
-                notification.title   = val.value;
-                notification.snippet = JSON.parse(body).snippet;
-                notification.messageID = JSON.parse(body).id;
-            }
-            if(val.name === "From"){
-                notification.sender = val.value.split('<')[0];;
-            }
-        })
-
-        header.forEach(function(val){
-            if(val.name === "From"){
-                important = filterMsg(userId,val.value,notification.title).then(resolve=>{
-                    if(resolve){
-                        addImportantMsg(userId,msgId,true);
-                        callback(null,notification,important);
-                    }
-                });
-            }
-        })
-    }).catch(err => {
-        console.log("getMsg error : " + err);
-    })
-}
-
-function sendToDevice(userId, notification,regToken,callback){
-    let notiObj : notificationObj[] = [];
-    let body    : string = ""; 
-    let key     : string = "";
-    let obj     : notificationObj = {
-        sender  : notification.sender,
-        title   : notification.title,
-        snippet : notification.snippet
-    };
-
-    recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapShot => {
-        key = Object.keys(snapShot.val())[0]; // To get the unique key
-        
-        recentMsgRef.child(key).push().set(obj)
-        .then(()=>{
-            recentMsgRef.orderByChild("userName").equalTo(userId).once("value").then(snapshot => {
-                snapshot.forEach(childSnapshot=>{
-                    childSnapshot.forEach(snap=>{
-                        if(snap.key!=="userName"){
-                            let msgObj = {} as notificationObj ;
-        
-                            msgObj['sender'] = snap.val().sender;
-                            msgObj['title'] = snap.val().title;
-                            msgObj['snippet'] = snap.val().snippet;
-                            notiObj.push(msgObj);
-                        }
-                    });
-                });
-
-                for(let i=0; i<notiObj.length; i++){
-                    body += `${notiObj[i].sender} : ${notiObj[i].title}\n`;
-                }
-                body.slice(0,2);
-                const emailNo = notiObj.length > 1? "emails" : "email";
-                const title = `You recently have ${notiObj.length} important ${emailNo} to look at :`;
-            
-                const payload = {
-                    notification : {
-                        title : title,
-                        body  : body,
-                        color : '#003fbd',
-                        icon  : 'notification_icon',
-                        tag   : '1'
-                    },
-                    data : {
-                        id    : notification.messageID
-                    }
-                };
-                admin.messaging().sendToDevice(regToken, payload)
-                .then(function(response) {
-                    // See the MessagingTopicResponse reference documentation for the
-                    // contents of response.
-                    callback(null,'done');
-                })
-                .catch(error => {
-                    console.log("Error sending message:", error);
-                });
-            })
-            .catch(err=>{
-                console.log(err);
-            })
-        })
-        .catch(err=>{
-            console.log(err);
-        });
-
-        
-        
-    })
-    .catch(err=>{
-        console.log(err);
-    }) ;
-}
-
-function watch(userName,accessToken,key,callback){
-    const postOptions = { 
-        method: 'POST',
-        url: `https://www.googleapis.com/gmail/v1/users/${userName}/watch`,
-        headers: { 
-            'Authorization': `Bearer ${accessToken}` ,
-            'Content-Type' : 'application/json' 
-        },
-        body: { 
-            topicName: 'projects/moodle-announcement-trac-347e7/topics/gmail-push-notification',
-            labelIds: [ 'INBOX' ] 
-        },
-      json: true 
-    };
-
-    return rp(postOptions).then(body => {
-        db.ref(`GmailSub/${key}`).update({
-            historyId : body.historyId
-        }).then(resolve =>{
-                if(callback!== 1){
-                    callback(null, 'done');
-                }
-            })
-            .catch(err => console.log(err));
-    })
-}
-
-function filterMsg(userId,from,title){
-    const dbRef = db.ref("Keyword");
-    let isReject : boolean = false;
-    return new Promise((resolve,reject)=>{
-        dbRef.orderByChild("userName").equalTo(userId).once("value").then(snapshot => {
-            snapshot.forEach(snapshotChild=>{
-                snapshotChild.forEach(snap=>{
-                    if(snap.key !== 'userName'){
-                        const fromRegex = new RegExp(snap.val().from.toLowerCase().split('@')[0]);
-                        const nameRegex = new RegExp("^" + snap.val().name.toLowerCase());
-                        if(snap.val().from !== 'any' && !fromRegex.test(from.toLowerCase())){
-                            isReject = true;
-                        }
-                        else{
-                            isReject = false;
-                        }
-
-                        if(snap.val().name === 'any' && !nameRegex.test(from.toLowerCase())){
-                            isReject = true;
-                        }
-                        else{
-                            isReject = false;
-                        }
-
-                        if(!isReject){
-                            for(const subject in snap.val().keywords){
-                                const subjectLine = snap.val().keywords[subject];
-                                if(subjectLine === 'any'){
-                                    resolve(true);
-                                }
-                                else{
-                                    if(snap.val().useRegex[subject]){
-                                        const subjectArr = subjectLine.split(' ');
-                                        for( let x=0; x < subjectArr.length; x++){
-                                            const subjectRegex = new RegExp(subjectArr[x].toLowerCase());
-                                            if(!subjectRegex.test(title.toLowerCase())){
-                                                isReject = true;
-                                            }
-                                        }
-                                        if(!isReject){
-                                            resolve(true);
-                                        }
-                                    }
-                                    else{
-                                        const subjectLineRegex = new RegExp(subjectLine.toLowerCase());
-                                        if(!subjectLineRegex.test(title.toLowerCase())){
-                                            isReject = true;
-                                        }
-                                        else{
-                                            resolve(true);
-                                        }
-                                    } 
-                                } 
-                            }
-                        }
-                    }
-                })
-            })
-            if(isReject){
-                reject(false);
-            }
-            else{
-                resolve(true);
-            }
-        })
-        .catch(err => console.log(err));
-    })
-}
-
-function addImportantMsg(userId,id,add){
-    const dbRef = db.ref("ImportantMsgId");
-    dbRef.orderByChild("userName").equalTo(userId).once("value").then(snapshot=>{
-        if(snapshot.val() !== null){
-            const key = Object.keys(snapshot.val())[0]; // To get the unique key
-            const msgIdRef = db.ref(`ImportantMsgId/${key}/id`);
-
-            msgIdRef.update({
-                [id] : add
-            })
-            .catch(err => console.log(err));
-        }
-    })
-    .catch(err => console.log(err));
-}
