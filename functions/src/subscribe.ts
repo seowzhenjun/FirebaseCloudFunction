@@ -1,0 +1,24 @@
+import * as async from 'async';
+import { refreshtoken } from './oAuth2'; 
+import * as GmailAPI from './GmailAPI';
+
+/* Cloud function to subscribe new user to Google Pub/Sub topic*/
+function subscribe(snap, context){
+    const key = snap.key;
+    const userName = snap.val().userName;
+    const refreshToken = snap.val().refreshToken;
+
+    // Flow of async Gmail REST calls to make sure they run in order
+    return async.waterfall([
+        function(callback){
+            refreshtoken(refreshToken, callback);
+        },
+        function(accessToken,callback){
+            GmailAPI.watch(userName,accessToken,key,callback);
+        }
+    ],function(err, result){
+        if(err) return (err);
+    });
+}
+
+export { subscribe };
