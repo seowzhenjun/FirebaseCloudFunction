@@ -1,3 +1,15 @@
+/********************************************************************************************
+ * Gmail APIs call                                                                          *
+ * - watch()        : subscribe user to Cloud Pub/Sub topic                                 *
+ * - get()          : fetch email based on its ID                                           *
+ * - historyList()  : compare and retrieve changes in user inbox, including 'messageAdded'  *
+ *                    and 'labelsAdded'                                                     *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as rp from 'request-promise';
 import * as admin from 'firebase-admin';
 
