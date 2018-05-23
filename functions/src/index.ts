@@ -22,19 +22,19 @@ export const subscribe = functions.database.ref('/GmailSub/{newUser}').onCreate(
 
 export const addData = functions.https.onRequest((req,res) =>{
     addDataHandler.addData(req,res);
-})
+});
 
 export const scheduleWatch = functions.https.onRequest((req,res) => {
     scheduleWatchHandler.scheduleWatch(req,res);
-})
+});
 
 export const unsubscribe = functions.https.onRequest((req,res) => {
     unsubscribeHandler.unsubscribe(req,res);
-})
+});
 
 export const sendFeedBack = functions.https.onRequest((req,res)=>{
     sendFeedBackHandler.sendFeedBack(req,res);
-})
+});
 
 export const clearRecentMsg = functions.https.onRequest((req,res)=>{
     clearRecentMsgHandler.clearRecentMsg(req,res);

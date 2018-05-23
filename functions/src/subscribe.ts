@@ -1,8 +1,14 @@
+/*******************************************************************************
+ * Cloud function to subscribe new user to Google Pub/Sub topic                *
+ * This function is triggered on newly created database entry in GmailSub      *
+ * It calls Gmail API watch() function to subscribe to Google Pub/Sub topic    *
+ * 'gmail-push-notification'                                                   *
+ *******************************************************************************/
+
 import * as async from 'async';
 import { refreshtoken } from './oAuth2'; 
 import * as GmailAPI from './GmailAPI';
 
-/* Cloud function to subscribe new user to Google Pub/Sub topic*/
 function subscribe(snap, context){
     const key = snap.key;
     const userName = snap.val().userName;

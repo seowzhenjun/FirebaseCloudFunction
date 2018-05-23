@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * Cloud function to call Gmail API watch() function for all users in database *
+ * This function is scheduled to run on 8am every morning                      *
+ * This is done automatically by cron-job                                      *
+ *******************************************************************************/
+
 import * as async from 'async';
 import * as admin from 'firebase-admin';
 
@@ -8,8 +14,6 @@ import * as GmailAPI from './GmailAPI';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
 
-/* Invoke watch() request for all users in database once everyday at 8am.
-   This is done automatically by cron-job */
 function scheduleWatch(req,res){
     const tokenArr = [];
     

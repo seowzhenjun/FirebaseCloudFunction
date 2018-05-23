@@ -1,3 +1,7 @@
+/*******************************************************************************
+ * Cloud function to remove regToken of logged out user from database          *
+ *******************************************************************************/
+
 import * as admin from 'firebase-admin';
 
 const db = admin.database();

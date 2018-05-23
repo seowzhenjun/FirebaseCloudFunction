@@ -1,3 +1,18 @@
+/**************************************************************************************
+ * Cloud function to retrieve any new email from user inbox, and run filter algorithm *
+ * to determine if use should be notified                                             *
+ * This function is on new message published to Cloud Pub/Sub topic                   *
+ * Pub/Sub message has the following structure :                                      *
+ * { emailAddress : email address of the corresponding user                           *
+ *   historyId    : latest historyId to be kept }                                     *
+ * The function first retrieve the last historyId of user, get changes in user inbox  *
+ * with histryList() function, then retreieve any new added message, then apply filter*
+ * algorithm. If the email passes the filter, then save this email to RecentMsg,      *
+ * while retrieving any other recent message, then send to FCM via sendToDevice() API,*
+ * which then sends push notification to user's device. The function also replace     *
+ * old historyId with the one received                                                *
+ **************************************************************************************/
+
 import * as admin from 'firebase-admin';
 import * as async from 'async';
 import * as GmailAPI from './GmailAPI';
@@ -7,9 +22,6 @@ import { sendToDevice } from './FCM';
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
 
-/* Cloud function that accept historyId from Google Pub/Sub, retrieve the previous user's historyId,
-   and replace it with the current one, and checks for any new email from user inbox,
-   and sends it to user's as push notifications */
 function pubSubTrigger(change, context){
     const messageBody = change ? Buffer.from(change.data, 'base64').toString() : null;
     const keydata = JSON.parse(messageBody);

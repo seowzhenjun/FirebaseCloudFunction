@@ -1,9 +1,16 @@
+/*******************************************************************************
+ * Cloud function to register new users to Firebase database                   *
+ * This function is triggered when user logs in to the app                     *
+ * It checks for existence of user data in database, if it exists, then update *
+ * its refresh token and regToken, if it doesn't exist, then create a new      *
+ * database entry and set the basic information of user into that entry        *
+ *******************************************************************************/
+
 import * as admin from 'firebase-admin';
 
 const db = admin.database();
 const gmailSubRef = db.ref("GmailSub");
 
-/* Cloud function to register new users to Firebase database */
 function addData(req,res){
     const body = req.body;
     gmailSubRef.orderByChild("userName").equalTo(body.name).once("value", snapshot => {

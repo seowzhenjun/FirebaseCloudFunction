@@ -1,4 +1,12 @@
+/****************************************************************************************************
+ * Cloud function to send feedback email from user to moodletracker.feedback@gmail.com              *
+ * This function is triggered when user submits feedback form through the app                       *
+ * Data sent from the app are restucture to become more readable and is sent through NPM plugin     * 
+ * NodeMailer                                                                                       *
+ ****************************************************************************************************/
+
 import * as nodemailer from 'nodemailer';
+import * as pwd from './password';
 
 const version = "0.1 (beta)";
 
@@ -10,7 +18,7 @@ function sendFeedBack(req,res){
         service : 'gmail',
         auth: {
             user: 'moodletracker.feedback@gmail.com',
-            pass : 'moodleTRACKER2018'
+            pass : pwd.emailPwd
         }
     });
 
@@ -32,7 +40,7 @@ function sendFeedBack(req,res){
         break;
 
     }
-    //This is the details of the mail where a long motion is detected
+    
     const testMail = {
         from: 'moodletracker.feedback@gmail.com',
         to: 'moodletracker.feedback@gmail.com',
@@ -45,7 +53,6 @@ function sendFeedBack(req,res){
             console.log(error);
             res.send({response:'error'});
         } else {
-            console.log('Email sent: ' + info.response);    //notify that an email is sent successfully
             res.send({response :'success'});
         }
     });
