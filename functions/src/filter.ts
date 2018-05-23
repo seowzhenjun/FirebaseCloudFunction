@@ -1,3 +1,24 @@
+/********************************************************************************************
+ * Filtering algorithm to determine whether an email is important to user                   *
+ * A filter rule has the following component :                                              *
+ * - Sender name                                                                            *
+ * - Sender email address                                                                   *
+ * - Subject line                                                                           *
+ * - Use regex?                                                                             *
+ *                                                                                          *
+ * Incoming email is compared in the following order : sender name -> email add -> subject  *
+ * line. Note that if any of the field has the word "any", then the comparison in that field*
+ * is skipped. In subject line, if useRegex is set to true, then each of the word in subject*
+ * line is break into a regular expression. If all the words exist in title of the email,   *
+ * then the title matches the subject line. Else, the whole subject line has to be a        *
+ * substring of the title in order to match. If the incoming email macthes all 3 components,*
+ * then it is considered as important.                                                      *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as admin from 'firebase-admin';
 
 const db = admin.database();

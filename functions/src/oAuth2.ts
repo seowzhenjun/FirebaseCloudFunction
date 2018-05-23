@@ -1,3 +1,15 @@
+/********************************************************************************************
+ * REST call to oAuth2 server to exchange refresh token for access token                    *
+ * Return object has the following structure :                                              *
+ * { accessToken : new access token                                                         *
+ *   expires_in : expire time of the token                                                  *
+ *   token_type : "Bearer"}                                                                 *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as rp from 'request-promise';
 import * as pwd from './password';
 

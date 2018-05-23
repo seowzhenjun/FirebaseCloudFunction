@@ -1,8 +1,11 @@
-/*******************************************************************************
- * Cloud function to clear all children nodes in RecentMsg                     *
- * This function is scheduled to run on 8am every morning                      *
- * This is done automatically by cron-job                                      *
- *******************************************************************************/
+/********************************************************************************************
+ * Cloud function to clear all children nodes in RecentMsg                                  *
+ * This function is scheduled to run on 8am every morning                                   *
+ * This is done automatically by cron-job                                                   *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
 
 import * as admin from 'firebase-admin';
 

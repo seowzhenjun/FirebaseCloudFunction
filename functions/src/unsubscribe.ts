@@ -1,6 +1,10 @@
-/*******************************************************************************
- * Cloud function to remove regToken of logged out user from database          *
- *******************************************************************************/
+/********************************************************************************************
+ * Cloud function to remove regToken of logged out user from database                       *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
 
 import * as admin from 'firebase-admin';
 

@@ -1,3 +1,17 @@
+/********************************************************************************************
+ * Function to pass notification text and registration token to FCM                         *
+ * This function saves detail of important email into RecentMsg tree, and fetch recent      *
+ * important emails, then restructure the notification text into the following form:        *
+ *                                                                                          *
+ * "You recently have %d important email to look at :                                       *
+ *  email sender 1 : email title 1                                                          *
+ *  ..."                                                                                    *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as admin from 'firebase-admin';
 import * as interfaces from './interfaces';
 

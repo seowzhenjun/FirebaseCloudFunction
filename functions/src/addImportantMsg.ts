@@ -1,3 +1,11 @@
+/********************************************************************************************
+ * Function to save ID of important email to user's database entry                          *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as admin from 'firebase-admin';
 
 const db = admin.database();

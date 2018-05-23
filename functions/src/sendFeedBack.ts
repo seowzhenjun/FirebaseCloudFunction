@@ -1,9 +1,13 @@
-/****************************************************************************************************
- * Cloud function to send feedback email from user to moodletracker.feedback@gmail.com              *
- * This function is triggered when user submits feedback form through the app                       *
- * Data sent from the app are restucture to become more readable and is sent through NPM plugin     * 
- * NodeMailer                                                                                       *
- ****************************************************************************************************/
+/********************************************************************************************
+ * Cloud function to send feedback email from user to moodletracker.feedback@gmail.com      *
+ * This function is triggered when user submits feedback form through the app               *
+ * Data sent from the app are restucture to become more readable and is sent through        * 
+ * NPM plugin NodeMailer                                                                    *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
 
 import * as nodemailer from 'nodemailer';
 import * as pwd from './password';

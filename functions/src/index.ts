@@ -1,3 +1,13 @@
+/********************************************************************************************
+ * This is the entry file for all the functions                                             *
+ * All Cloud functions should be declared here                                              *
+ * Logic for each Cloud function should be written in another ts file                       *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
+
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 admin.initializeApp();

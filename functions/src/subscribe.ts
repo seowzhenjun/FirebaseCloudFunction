@@ -1,9 +1,13 @@
-/*******************************************************************************
- * Cloud function to subscribe new user to Google Pub/Sub topic                *
- * This function is triggered on newly created database entry in GmailSub      *
- * It calls Gmail API watch() function to subscribe to Google Pub/Sub topic    *
- * 'gmail-push-notification'                                                   *
- *******************************************************************************/
+/********************************************************************************************
+ * Cloud function to subscribe new user to Google Pub/Sub topic                             *
+ * This function is triggered on newly created database entry in GmailSub                   *
+ * It calls Gmail API watch() function to subscribe to Google Pub/Sub topic                 *
+ * 'gmail-push-notification'                                                                *
+ *                                                                                          *
+ * Written by : Zhen Jun Seow                                                               *
+ * Depart of Electrical and Computer System Engineering (ECSE), Monash University Australia *
+ * Last edited : 23/05/2018                                                                 *
+ ********************************************************************************************/
 
 import * as async from 'async';
 import { refreshtoken } from './oAuth2'; 
